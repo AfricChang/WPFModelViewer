@@ -14,84 +14,152 @@ using System.Windows.Shapes;
 using System.Windows.Media.Media3D;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
+using System.IO;
+using Path = System.IO.Path;
 
 namespace WpfApplication2
 {
 
     public partial class MainWindow : Window
     {
-        //声明摄像头
-        PerspectiveCamera myPCamera;
-        //鼠标灵敏度调节
-        double mouseDeltaFactor = 0.4;
+
+        // 添加常量定义
+        private const double MOUSE_SENSITIVITY = 0.4;
+        private const double CAMERA_INITIAL_FOV = 1000;
+        private const double CAMERA_INITIAL_Z = 200;
+        private const double ZOOM_SCALE_FACTOR = 13;
+        private const int MOUSE_WHEEL_DELTA = 120;
+
+        private readonly PerspectiveCamera myPCamera;
+        private Point mouseLastPosition;
 
         public MainWindow()
         {
             InitializeComponent();
-            
-            //摄像头
-            myPCamera = new PerspectiveCamera();
-            myPCamera.Position = new Point3D(0, 0, 200);
-            myPCamera.LookDirection = new Vector3D(0, 0, -1);
-            myPCamera.FieldOfView = 1000;
+
+            // 初始化相机
+            myPCamera = InitializeCamera();
             vp.Camera = myPCamera;
 
-            Model3DGroup myModel3DGroup = new Model3DGroup();
-            //光源
-            //AmbientLight （自然光）
-            //DirectionalLight （方向光）
-            //PointLight （点光源）
-            //SpotLight （聚光源）
-            DirectionalLight myDirectionalLight = new DirectionalLight();
-            myDirectionalLight.Color = Colors.White;
-            myDirectionalLight.Direction = new Vector3D(0.61, 0.5, 0.61);
-            myModel3DGroup.Children.Add(myDirectionalLight);
+            // 初始化光照
+            var myModel3DGroup = CreateLightingModel();
 
-            //DirectionalLight myDirectionalLight2 = new DirectionalLight();
-            //myDirectionalLight2.Color = Colors.White;
-            //myDirectionalLight2.Direction = new Vector3D(0.61, 0.5, 0.61);
-            //myModel3DGroup.Children.Add(myDirectionalLight2);
+            // 加载3D模型
+            LoadAndSetup3DModels(myModel3DGroup);
 
+            // 添加鼠标事件
+            SetupMouseEvents();
+        }
 
+        private PerspectiveCamera InitializeCamera()
+        {
+            return new PerspectiveCamera
+            {
+                Position = new Point3D(0, 0, CAMERA_INITIAL_Z),
+                LookDirection = new Vector3D(0, 0, -1),
+                FieldOfView = CAMERA_INITIAL_FOV
+            };
+        }
 
-            //new一个loader对象
-            WavefrontObjLoader wfl = new WavefrontObjLoader();
-            //ModelVisual3DWithName是WavefrontObjLoader定义的继承ModelVisual3D的对象，直接使用ModelVisual3D也是可以的
-            //导入obj，第一个模型命名为m
-            ModelVisual3DWithName m = wfl.LoadObjFile(@"E:\CAD\musou\ModelViewer\WpfApplication2\Lancer_Evolution_10.obj");          
-            m.Content = myModel3DGroup;
-            //导入obj，第二个模型命名为n
-            var n = wfl.LoadObjFile(@"E:\CAD\musou\ModelViewer\WpfApplication2\精细人体.obj");
-            n.Content = myModel3DGroup;
+        private Model3DGroup CreateLightingModel()
+        {
+            var model3DGroup = new Model3DGroup();
+            var directionalLight = new DirectionalLight
+            {
+                Color = Colors.White,
+                Direction = new Vector3D(0.61, 0.5, 0.61)
+            };
+            model3DGroup.Children.Add(directionalLight);
+            return model3DGroup;
+        }
 
-            //下面是调整n的位置，初学者可以先注释掉。
-            var tt = new TranslateTransform3D();
-            tt.OffsetX = 110;
-            tt.OffsetZ = -50;
-            tt.OffsetY =-100;
-            var tr = new RotateTransform3D();            
-            tr.Rotation = new AxisAngleRotation3D(new Vector3D(1, 0, 0), 90);
+        private void LoadAndSetup3DModels(Model3DGroup modelGroup)
+        {
+            var wfl = new WavefrontObjLoader();
 
-            var tr2 = new RotateTransform3D();
-            tr2.Rotation= new AxisAngleRotation3D(new Vector3D(0, 0, 1), -45);
+            // 获取相对路径
+            string basePath = Path.Combine("..", "data");
 
-            var ts = new ScaleTransform3D();
-            ts.ScaleX = 1.5;
-            ts.ScaleY = 1.5;
-            ts.ScaleZ = 1.6;
-            var tg = new Transform3DGroup();
-            tg.Children.Add(tr); tg.Children.Add(tr2); tg.Children.Add(tt); tg.Children.Add(ts);
-            n.Transform = tg;
-            //将两个模型添加到场景中
-            vp.Children.Add(m);
-            vp.Children.Add(n);
-            //添加鼠标事件，用于显示隐藏光晕特效
+            // 加载第一个模型
+            var model1 = wfl.LoadObjFile(Path.Combine(basePath, "Lancer_Evolution_10.obj"));
+            model1.Content = modelGroup;
+
+            // 加载第二个模型
+            var model2 = wfl.LoadObjFile(Path.Combine(basePath, "精细人体.obj"));
+            model2.Content = modelGroup;
+
+            // 设置第二个模型的变换
+            model2.Transform = CreateModelTransform();
+
+            // 添加到视图
+            vp.Children.Add(model1);
+            vp.Children.Add(model2);
+        }
+
+        private Transform3D CreateModelTransform()
+        {
+            var transformGroup = new Transform3DGroup();
+
+            // 旋转变换
+            transformGroup.Children.Add(new RotateTransform3D
+            {
+                Rotation = new AxisAngleRotation3D(new Vector3D(1, 0, 0), 90)
+            });
+            transformGroup.Children.Add(new RotateTransform3D
+            {
+                Rotation = new AxisAngleRotation3D(new Vector3D(0, 0, 1), -45)
+            });
+
+            // 平移变换
+            transformGroup.Children.Add(new TranslateTransform3D(110, -100, -50));
+
+            // 缩放变换
+            transformGroup.Children.Add(new ScaleTransform3D(1.5, 1.5, 1.6));
+
+            return transformGroup;
+        }
+
+        private void SetupMouseEvents()
+        {
             vp.MouseEnter += Vp_MouseEnter;
-            vp.MouseLeave += Vp_MouseLeave; 
+            vp.MouseLeave += Vp_MouseLeave;
+        }
+
+        // 优化鼠标滚轮事件处理
+        private void VP_MouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            var currentPosition = myPCamera.Position;
+            var lookDirection = myPCamera.LookDirection;
+            lookDirection.Normalize();
+            lookDirection *= ZOOM_SCALE_FACTOR;
+
+            var isZoomingIn = e.Delta == MOUSE_WHEEL_DELTA;
+            var newPosition = isZoomingIn ?
+                (currentPosition + lookDirection) :
+                (currentPosition - lookDirection);
+
+            // 只在放大时检查位置
+            if (!isZoomingIn || (newPosition.X * currentPosition.X > 0))
+            {
+                AnimateCameraPosition(currentPosition, newPosition);
+            }
+        }
+
+        private void AnimateCameraPosition(Point3D from, Point3D to)
+        {
+            var animation = new Point3DAnimation
+            {
+                BeginTime = TimeSpan.Zero,
+                Duration = TimeSpan.FromMilliseconds(100),
+                From = from,
+                To = to
+            };
+            animation.Completed += positionAnimation_Completed;
+            myPCamera.BeginAnimation(PerspectiveCamera.PositionProperty, animation, HandoffBehavior.Compose);
         }
 
         private void Vp_MouseLeave(object sender, MouseEventArgs e)
-        {           
+        {
             vp.Effect = null;
         }
 
@@ -99,12 +167,12 @@ namespace WpfApplication2
         {
             DropShadowEffect BlurRadius = new DropShadowEffect();
 
-                BlurRadius.BlurRadius = 20;
-                BlurRadius.Color = Colors.Yellow;
-                BlurRadius.Direction = 0;
-                BlurRadius.Opacity = 1;
-                BlurRadius.ShadowDepth = 0;
-                vp.Effect = BlurRadius;                     
+            BlurRadius.BlurRadius = 20;
+            BlurRadius.Color = Colors.Yellow;
+            BlurRadius.Direction = 0;
+            BlurRadius.Opacity = 1;
+            BlurRadius.ShadowDepth = 0;
+            vp.Effect = BlurRadius;
         }
 
 
@@ -116,7 +184,7 @@ namespace WpfApplication2
             if (rayResult != null)
             {
                 //RayMeshGeometry3DHitTestResult rayMeshResult = rayResult as RayMeshGeometry3DHitTestResult;
-               RayHitTestResult rayMeshResultrayResult = rayResult as RayHitTestResult;
+                RayHitTestResult rayMeshResultrayResult = rayResult as RayHitTestResult;
                 if (rayMeshResultrayResult != null)
                 {
                     //GeometryModel3D hitgeo = rayMeshResult.ModelHit as GeometryModel3D;
@@ -129,13 +197,6 @@ namespace WpfApplication2
 
             return HitTestResultBehavior.Continue;
         }
-
-
-
-
-
-        //鼠标位置
-        Point mouseLastPosition;
 
         private void vp_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -158,7 +219,7 @@ namespace WpfApplication2
         //鼠标旋转
         private void Window_MouseMove(object sender, MouseEventArgs e)
         {
-            if (Mouse.LeftButton == MouseButtonState.Pressed)//如果按下鼠标左键
+            if (Mouse.LeftButton == MouseButtonState.Pressed)//如按下鼠标左键
 
             {
 
@@ -168,7 +229,7 @@ namespace WpfApplication2
 
                 {
                     //进行水平旋转
-                    HorizontalTransform(mouseLastPosition.X < newMousePosition.X, mouseDeltaFactor);//水平变换
+                    HorizontalTransform(mouseLastPosition.X < newMousePosition.X, MOUSE_SENSITIVITY);//水平变换
 
                 }
 
@@ -176,7 +237,7 @@ namespace WpfApplication2
 
                 {
                     //进行垂直旋转
-                    VerticalTransform(mouseLastPosition.Y > newMousePosition.Y, mouseDeltaFactor);//垂直变换 
+                    VerticalTransform(mouseLastPosition.Y > newMousePosition.Y, MOUSE_SENSITIVITY);//垂直变换 
 
                 }
 
@@ -184,42 +245,6 @@ namespace WpfApplication2
 
             }
 
-        }
-
-        //鼠标滚轮缩放
-        private void VP_MouseWheel(object sender, MouseWheelEventArgs e)
-        {
-            double scaleFactor = 13;
-            //120 near ,   -120 far
-            System.Diagnostics.Debug.WriteLine(e.Delta.ToString());
-            Point3D currentPosition = myPCamera.Position;
-            Vector3D lookDirection = myPCamera.LookDirection;//new Vector3D(camera.LookDirection.X, camera.LookDirection.Y, camera.LookDirection.Z);
-            lookDirection.Normalize();
-
-            lookDirection *= scaleFactor;
-
-            if (e.Delta == 120)//getting near
-            {
-               //myPCamera.FieldOfView /= 1.2;
-
-                if ((currentPosition.X + lookDirection.X) * currentPosition.X > 0)
-                {
-                    currentPosition += lookDirection;
-                }
-            }
-            if (e.Delta == -120)//getting far
-            {
-               //myPCamera.FieldOfView *= 1.2;
-                currentPosition -= lookDirection;
-            }
-
-            Point3DAnimation positionAnimation = new Point3DAnimation();
-            positionAnimation.BeginTime = new TimeSpan(0, 0, 0);
-            positionAnimation.Duration = TimeSpan.FromMilliseconds(100);
-            positionAnimation.To = currentPosition;
-            positionAnimation.From = myPCamera.Position;
-            positionAnimation.Completed += new EventHandler(positionAnimation_Completed);
-            myPCamera.BeginAnimation(PerspectiveCamera.PositionProperty, positionAnimation, HandoffBehavior.Compose);
         }
 
         void positionAnimation_Completed(object sender, EventArgs e)
@@ -247,8 +272,8 @@ namespace WpfApplication2
             newUpDirection.Normalize();
             myPCamera.UpDirection = newUpDirection;
         }
-       // 水平变换：
-private void HorizontalTransform(bool leftRight, double angleDeltaFactor)
+        // 水平变换：
+        private void HorizontalTransform(bool leftRight, double angleDeltaFactor)
         {
             Vector3D postion = new Vector3D(myPCamera.Position.X, myPCamera.Position.Y, myPCamera.Position.Z);
             Vector3D rotateAxis = myPCamera.UpDirection;
@@ -261,9 +286,7 @@ private void HorizontalTransform(bool leftRight, double angleDeltaFactor)
             myPCamera.LookDirection = new Vector3D(-newPostition.X, -newPostition.Y, -newPostition.Z);
         }
 
-
-
     }
 
 }
-       
+

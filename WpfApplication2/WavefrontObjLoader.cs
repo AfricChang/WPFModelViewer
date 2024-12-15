@@ -85,11 +85,9 @@ namespace WpfApplication2
     }
 
 
-
-
     public class WavefrontObjLoader
     {
-        
+
         private static readonly char[] CommentCharacters = new char[] { '#', '$' };
         private List<Point3D> coordinates;
         private static readonly Material DefaultWhiteMaterial = new DiffuseMaterial(new SolidColorBrush(Colors.White));
@@ -98,10 +96,10 @@ namespace WpfApplication2
         private bool generateNormals = true;
         private bool generateTextureCoordinates = true;
         private List<Group> groups;
-        private static readonly KeywordData[] Keywords = new KeywordData[] { 
-                                                                               new KeywordData("v", KeywordType.GeometricVertex), new KeywordData("vn", KeywordType.VertexNormal), new KeywordData("vt", KeywordType.TextureVertex), new KeywordData("f", KeywordType.Face), new KeywordData("fo", KeywordType.Face), new KeywordData("g", KeywordType.Group), new KeywordData("l", KeywordType.Line), new KeywordData("o", KeywordType.ObjectName), new KeywordData("s", KeywordType.SmoothingGroup), new KeywordData("mtllib", KeywordType.MaterialLibrary), new KeywordData("usemtl", KeywordType.UseMaterial), new KeywordData("usemap", KeywordType.UseMap), new KeywordData("bevel", KeywordType.UnimplementedKeyword), new KeywordData("bmat", KeywordType.UnimplementedKeyword), new KeywordData("bsp", KeywordType.UnimplementedKeyword), new KeywordData("bzp", KeywordType.UnimplementedKeyword), 
-                                                                               new KeywordData("c_interop", KeywordType.UnimplementedKeyword), new KeywordData("cdc", KeywordType.UnimplementedKeyword), new KeywordData("con", KeywordType.UnimplementedKeyword), new KeywordData("cstype", KeywordType.UnimplementedKeyword), new KeywordData("ctech", KeywordType.UnimplementedKeyword), new KeywordData("curv", KeywordType.UnimplementedKeyword), new KeywordData("curv2", KeywordType.UnimplementedKeyword), new KeywordData("d_interop", KeywordType.UnimplementedKeyword), new KeywordData("deg", KeywordType.UnimplementedKeyword), new KeywordData("end", KeywordType.UnimplementedKeyword), new KeywordData("hole", KeywordType.UnimplementedKeyword), new KeywordData("lod", KeywordType.UnimplementedKeyword), new KeywordData("maplib", KeywordType.UnimplementedKeyword), new KeywordData("mg", KeywordType.UnimplementedKeyword), new KeywordData("p", KeywordType.UnimplementedKeyword), new KeywordData("param", KeywordType.UnimplementedKeyword), 
-                                                                               new KeywordData("parm", KeywordType.UnimplementedKeyword), new KeywordData("res", KeywordType.UnimplementedKeyword), new KeywordData("scrv", KeywordType.UnimplementedKeyword), new KeywordData("shadow_obj", KeywordType.UnimplementedKeyword), new KeywordData("sp", KeywordType.UnimplementedKeyword), new KeywordData("stech", KeywordType.UnimplementedKeyword), new KeywordData("step", KeywordType.UnimplementedKeyword), new KeywordData("surf", KeywordType.UnimplementedKeyword), new KeywordData("trace_obj", KeywordType.UnimplementedKeyword), new KeywordData("trim", KeywordType.UnimplementedKeyword), new KeywordData("vp", KeywordType.UnimplementedKeyword), new KeywordData("newmtl", KeywordType.NewMaterial), new KeywordData("illum", KeywordType.IlluminationMode), new KeywordData("Ka", KeywordType.Ambient), new KeywordData("Kd", KeywordType.Diffuse), new KeywordData("Ks", KeywordType.Specular), 
+        private static readonly KeywordData[] Keywords = new KeywordData[] {
+                                                                               new KeywordData("v", KeywordType.GeometricVertex), new KeywordData("vn", KeywordType.VertexNormal), new KeywordData("vt", KeywordType.TextureVertex), new KeywordData("f", KeywordType.Face), new KeywordData("fo", KeywordType.Face), new KeywordData("g", KeywordType.Group), new KeywordData("l", KeywordType.Line), new KeywordData("o", KeywordType.ObjectName), new KeywordData("s", KeywordType.SmoothingGroup), new KeywordData("mtllib", KeywordType.MaterialLibrary), new KeywordData("usemtl", KeywordType.UseMaterial), new KeywordData("usemap", KeywordType.UseMap), new KeywordData("bevel", KeywordType.UnimplementedKeyword), new KeywordData("bmat", KeywordType.UnimplementedKeyword), new KeywordData("bsp", KeywordType.UnimplementedKeyword), new KeywordData("bzp", KeywordType.UnimplementedKeyword),
+                                                                               new KeywordData("c_interop", KeywordType.UnimplementedKeyword), new KeywordData("cdc", KeywordType.UnimplementedKeyword), new KeywordData("con", KeywordType.UnimplementedKeyword), new KeywordData("cstype", KeywordType.UnimplementedKeyword), new KeywordData("ctech", KeywordType.UnimplementedKeyword), new KeywordData("curv", KeywordType.UnimplementedKeyword), new KeywordData("curv2", KeywordType.UnimplementedKeyword), new KeywordData("d_interop", KeywordType.UnimplementedKeyword), new KeywordData("deg", KeywordType.UnimplementedKeyword), new KeywordData("end", KeywordType.UnimplementedKeyword), new KeywordData("hole", KeywordType.UnimplementedKeyword), new KeywordData("lod", KeywordType.UnimplementedKeyword), new KeywordData("maplib", KeywordType.UnimplementedKeyword), new KeywordData("mg", KeywordType.UnimplementedKeyword), new KeywordData("p", KeywordType.UnimplementedKeyword), new KeywordData("param", KeywordType.UnimplementedKeyword),
+                                                                               new KeywordData("parm", KeywordType.UnimplementedKeyword), new KeywordData("res", KeywordType.UnimplementedKeyword), new KeywordData("scrv", KeywordType.UnimplementedKeyword), new KeywordData("shadow_obj", KeywordType.UnimplementedKeyword), new KeywordData("sp", KeywordType.UnimplementedKeyword), new KeywordData("stech", KeywordType.UnimplementedKeyword), new KeywordData("step", KeywordType.UnimplementedKeyword), new KeywordData("surf", KeywordType.UnimplementedKeyword), new KeywordData("trace_obj", KeywordType.UnimplementedKeyword), new KeywordData("trim", KeywordType.UnimplementedKeyword), new KeywordData("vp", KeywordType.UnimplementedKeyword), new KeywordData("newmtl", KeywordType.NewMaterial), new KeywordData("illum", KeywordType.IlluminationMode), new KeywordData("Ka", KeywordType.Ambient), new KeywordData("Kd", KeywordType.Diffuse), new KeywordData("Ks", KeywordType.Specular),
                                                                                new KeywordData("Ke", KeywordType.Emissive), new KeywordData("d", KeywordType.Alpha), new KeywordData("Tf", KeywordType.Transparency), new KeywordData("Tr", KeywordType.Alpha), new KeywordData("Ns", KeywordType.Shininess), new KeywordData("Ni", KeywordType.RefractionIndex), new KeywordData("map_Ka", KeywordType.AmbientTextureFilename), new KeywordData("map_bump", KeywordType.BumpTextureFilename), new KeywordData("bump", KeywordType.BumpTextureFilename), new KeywordData("map_Kd", KeywordType.DiffuseTextureFilename), new KeywordData("map_Ks", KeywordType.SpecularTextureFilename), new KeywordData("map_Ns", KeywordType.ShininessTextureFilename), new KeywordData("map_refl", KeywordType.ReflectionTextureFilename), new KeywordData("refl", KeywordType.ReflectionTextureFilename), new KeywordData("sharpness", KeywordType.Sharpness)
                                                                            };
         // private IMessageLoggingService logger;
@@ -115,7 +113,6 @@ namespace WpfApplication2
         private int totalVertices;
         private int totalVerticesInObj;
         private List<Vector3D> vertexNormals;
-
 
 
         //public WavefrontObjLoader(SceneViewModel sceneViewModel, IMessageLoggingService logger, IMessageDisplayService manager)
@@ -305,31 +302,31 @@ namespace WpfApplication2
 
         private ModelVisual3DWithName GenerateAvalonTree()
         {
-            var visuald = new ModelVisual3DWithName {Name = "RootGeometryContainer"};
+            var visuald = new ModelVisual3DWithName { Name = "RootGeometryContainer" };
             if (!dictionaries.ContainsKey(visuald.Name))
             {
-                dictionaries.Add(visuald.Name, visuald);    
+                dictionaries.Add(visuald.Name, visuald);
             }
-            
+
             for (int i = 0; i < this.groups.Count; i++)
             {
                 Group group = this.groups[i];
-                var visuald2 = new ModelVisual3DWithName {Name = group.Name};
+                var visuald2 = new ModelVisual3DWithName { Name = group.Name };
                 if (!dictionaries.ContainsKey(visuald2.Name))
                 {
-                    dictionaries.Add(visuald2.Name, visuald2);    
+                    dictionaries.Add(visuald2.Name, visuald2);
                 }
-                
+
                 if (group.Geometry.Count > 1)
                 {
                     for (int j = 0; j < group.Geometry.Count; j++)
                     {
                         var visuald3 = new ModelVisual3DWithName
-                                                             {
-                                                                 Name = group.Geometry[j].Name,
-                                                                 Content = BuildGeometryModel3DFromGeometry(
+                        {
+                            Name = group.Geometry[j].Name,
+                            Content = BuildGeometryModel3DFromGeometry(
                                                                      group.Geometry[j])
-                                                             };
+                        };
                         if (visuald3.Content != null)
                         {
                             visuald2.Children.Add(visuald3);
@@ -351,7 +348,7 @@ namespace WpfApplication2
         {
             Vector3D vectord = point - center;
             vectord.Normalize();
-            return new Point((Math.Asin(vectord.X) / 3.1415926535897931) + 0.5, 1.0 - ((Math.Asin(vectord.Y) / 3.1415926535897931) + 0.5));
+            return new Point((Math.Asin(vectord.X) / Math.PI) + 0.5, 1.0 - ((Math.Asin(vectord.Y) / 3.1415926535897931) + 0.5));
         }
 
         private Dictionary<string, ObjMaterial> LoadMtlFile(string mtlFilename)
@@ -390,14 +387,14 @@ namespace WpfApplication2
         {
             using (Stream fs = new FileStream(targetFile, FileMode.Open, FileAccess.Read))
             {
-                return LoadObjFile(new StreamReader(fs), 
+                return LoadObjFile(new StreamReader(fs),
                                    Path.GetFullPath(targetFile).Replace(
-                                   Path.GetFileName(targetFile),""),
+                                   Path.GetFileName(targetFile), ""),
                                    Path.GetFileName(targetFile));
             }
         }
 
-        
+
 
         public ModelVisual3DWithName LoadObjFile(StreamReader streamReader, string rootPath, string filename)
         {
@@ -497,7 +494,7 @@ namespace WpfApplication2
                             }
                         case KeywordType.MaterialLibrary:
                             {
-                                dictionary = LoadMtlFile(Path.Combine(rootPath, content)); 
+                                dictionary = LoadMtlFile(Path.Combine(rootPath, content));
                                 continue;
                             }
                         case KeywordType.ObjectName:
@@ -576,18 +573,18 @@ namespace WpfApplication2
                     }
                 }
                 continue;
-                Label_0207: ;
+            Label_0207:;
                 material2 = DefaultMaterial();
                 continue;
-                Label_0301:
+            Label_0301:
                 continue;
-                Label_0345:
+            Label_0345:
                 continue;
-                Label_037B:
+            Label_037B:
                 continue;
-                Label_03B1:
+            Label_03B1:
                 continue;
-                Label_03EA:
+            Label_03EA:
                 if (!int.TryParse(content, NumberStyles.Integer, CultureInfo.InvariantCulture, out key))
                 {
                     //MessageBox.Show("string.Format(CultureInfo.CurrentCulture, StringTable.WavefrontObjLoaderErrorInvalidSmoothingGroup, new object[] { content })");
@@ -689,14 +686,14 @@ namespace WpfApplication2
             catch (Exception)
             {
             }
-         
+
             string path = System.IO.Path.Combine(rootPath, content);
             if (File.Exists(path))
             {
-              
+
                 image = new BitmapImage();
                 image.BeginInit();
-                image.UriSource = new Uri(path , UriKind.RelativeOrAbsolute);
+                image.UriSource = new Uri(path, UriKind.RelativeOrAbsolute);
                 image.EndInit();
             }
             return image;
@@ -1050,21 +1047,21 @@ namespace WpfApplication2
                     }
                 }
                 continue;
-                Label_015A:
+            Label_015A:
                 continue;
-                Label_0192:
+            Label_0192:
                 continue;
-                Label_01C0:
+            Label_01C0:
                 continue;
-                Label_01EE:
+            Label_01EE:
                 continue;
-                Label_027A:
+            Label_027A:
                 continue;
-                Label_02A8:
+            Label_02A8:
                 continue;
-                Label_02D6:
+            Label_02D6:
                 ;
-                
+
             }
             if ((currentMaterial.MaterialName != null) && (currentMaterial.Material == null))
             {
