@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="WpfApp1.ColorPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="选择颜色" Height="300" Width="400" WindowStartupLocation="CenterOwner">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            
+            <!-- 颜色预览 -->
+            <Border Grid.Column="0" BorderBrush="Black" BorderThickness="1" Margin="0,0,10,0">
+                <Rectangle x:Name="ColorPreview" Fill="Red"/>
+            </Border>
+
+            <!-- 颜色选择器 -->
+            <StackPanel Grid.Column="1" Width="200">
+                <TextBlock Text="红色 (R):" Margin="0,5"/>
+                <Slider x:Name="RedSlider" Maximum="255" ValueChanged="ColorSlider_ValueChanged"/>
+                <TextBlock Text="绿色 (G):" Margin="0,5"/>
+                <Slider x:Name="GreenSlider" Maximum="255" ValueChanged="ColorSlider_ValueChanged"/>
+                <TextBlock Text="蓝色 (B):" Margin="0,5"/>
+                <Slider x:Name="BlueSlider" Maximum="255" ValueChanged="ColorSlider_ValueChanged"/>
+                <TextBlock Text="透明度 (A):" Margin="0,5"/>
+                <Slider x:Name="AlphaSlider" Maximum="255" Value="255" ValueChanged="ColorSlider_ValueChanged"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- 当前颜色值显示 -->
+        <TextBlock Grid.Row="1" x:Name="ColorValue" Text="当前颜色: #FFFF0000" Margin="0,10"/>
+
+        <!-- 按钮 -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="确定" Width="75" Height="25" Click="OKButton_Click" Margin="0,0,10,0"/>
+            <Button Content="取消" Width="75" Height="25" Click="CancelButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

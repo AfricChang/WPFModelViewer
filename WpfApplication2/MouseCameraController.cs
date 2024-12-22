@@ -60,9 +60,16 @@ namespace WpfApplication2
             Vector delta = position - lastMousePosition;
 
             if (isRotating)
-                HandleRotation(delta);
+            {
+                // 使用屏幕中心点作为旋转中心
+                var screenCenter = new Point(ViewPort.ActualWidth / 2, ViewPort.ActualHeight / 2);
+                var center3D = GetPoint3DFromMousePosition(screenCenter) ?? GetModelCenter();
+                HandleRotation(delta, center3D);
+            }
             else if (isPanning)
+            {
                 HandlePanning(delta);
+            }
 
             lastMousePosition = position;
         }
@@ -93,23 +100,20 @@ namespace WpfApplication2
             camera.Position = newPosition;
         }
 
-        private void HandleRotation(Vector delta)
+        private void HandleRotation(Vector delta, Point3D center)
         {
             // 只处理主要移动方向
             if (Math.Abs(delta.X) > Math.Abs(delta.Y))
-                RotateHorizontal(delta.X);
+                RotateHorizontal(delta.X, center);
             else if (Math.Abs(delta.Y) > Math.Abs(delta.X))
-                RotateVertical(delta.Y);
+                RotateVertical(delta.Y, center);
         }
 
-        private void RotateHorizontal(double delta)
+        private void RotateHorizontal(double delta, Point3D center)
         {
-            var center = GetModelCenter();
-            var modelYAxis = new Vector3D(0, modelBounds.SizeY, 0);
-            modelYAxis.Normalize();
-
+            var modelYAxis = new Vector3D(0, 1, 0); // 使用世界坐标系的Y轴
             var angle = -delta * ROTATION_SPEED;
-            var rotation = new RotateTransform3D(new AxisAngleRotation3D(modelYAxis, angle));
+            var rotation = new RotateTransform3D(new AxisAngleRotation3D(modelYAxis, angle), center);
 
             var relativePosition = camera.Position - center;
             var newPosition = rotation.Transform(relativePosition) + center;
@@ -117,19 +121,17 @@ namespace WpfApplication2
             camera.Position = newPosition;
             camera.LookDirection = center - newPosition;
             camera.LookDirection.Normalize();
-            camera.UpDirection = modelYAxis;
         }
 
-        private void RotateVertical(double delta)
+        private void RotateVertical(double delta, Point3D center)
         {
-            var center = GetModelCenter();
             var lookDirection = center - camera.Position;
             lookDirection.Normalize();
             var right = Vector3D.CrossProduct(lookDirection, camera.UpDirection);
             right.Normalize();
 
             var angle = -delta * ROTATION_SPEED;
-            var rotation = new RotateTransform3D(new AxisAngleRotation3D(right, angle));
+            var rotation = new RotateTransform3D(new AxisAngleRotation3D(right, angle), center);
 
             var relativePosition = camera.Position - center;
             var newPosition = rotation.Transform(relativePosition) + center;

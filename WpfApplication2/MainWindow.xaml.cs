@@ -177,18 +177,19 @@ namespace WpfApplication2
             // 获取相对路径
             string basePath = Path.Combine("..", "data");
 
-            // 加载第一个模型
-            var model1 = wfl.LoadObjFile(Path.Combine(basePath, "cube_mtllib_after_g.obj"));
+            //var model1 = wfl.LoadObjFile(Path.Combine(basePath, "cube_mtllib_after_g.obj"));
+            //var model2 = wfl.LoadObjFile(Path.Combine(basePath, "WusonOBJ.obj"));
+            //var model3 = wfl.LoadObjFile(Path.Combine(basePath, "box.obj"));
 
-            // 加载第二个模型
-            var model2 = wfl.LoadObjFile(Path.Combine(basePath, "WusonOBJ.obj"));
 
-            // 加载第三个模型
-            var model3 = wfl.LoadObjFile(Path.Combine(basePath, "box.obj"));
+            var model1 = wfl.LoadObjFile(@"E:\CAD\musou\图纸\1号柜.obj");
+            var model2 = wfl.LoadObjFile(@"E:\CAD\musou\图纸\2号柜.obj");
+            //var model3 = wfl.LoadObjFile(Path.Combine(basePath, "box.obj"));
 
+            
             MainViewport.Children.Add(model1);
             MainViewport.Children.Add(model2);
-            MainViewport.Children.Add(model3);
+            //MainViewport.Children.Add(model3);
 
             // 计算并保存模型边界
             CalculateAndStoreBounds();
