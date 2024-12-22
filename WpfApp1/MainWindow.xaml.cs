@@ -12,6 +12,7 @@ using System.Windows.Media.Imaging;
 using System.IO;
 using MessageBox = System.Windows.MessageBox;
 using System.Security.Policy;
+using System.Windows.Threading;
 
 namespace WpfApp1
 {
@@ -139,7 +140,7 @@ namespace WpfApp1
                         return scaleTransform;
                     }
                 }
-                
+
                 // 如果没找到，创建新的并添加到组中
                 var newScale = new ScaleTransform3D(1, 1, 1);
                 group.Children.Add(newScale);
@@ -356,29 +357,43 @@ namespace WpfApp1
                             viewPort3D.Background = Brushes.Black;
                         }
 
-                        // 创建RenderTargetBitmap
-                        var renderBitmap = new RenderTargetBitmap(
-                            (int)viewPort3D.ActualWidth,
-                            (int)viewPort3D.ActualHeight,
-                            96, 96,
-                            PixelFormats.Pbgra32);
-
-                        renderBitmap.Render(viewPort3D);
-
-                        // 创建PNG编码器
-                        var encoder = new PngBitmapEncoder();
-                        encoder.Frames.Add(BitmapFrame.Create(renderBitmap));
-
-                        // 保存图片
-                        using (var stream = File.Create(saveFileDialog.FileName))
+                        // 等待两个渲染帧完成后再截图
+                        Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
                         {
-                            encoder.Save(stream);
-                        }
+                            Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
+                            {
+                                try
+                                {
+                                    var renderBitmap = new RenderTargetBitmap(
+                                        (int)viewPort3D.ActualWidth,
+                                        (int)viewPort3D.ActualHeight,
+                                        96, 96,
+                                        PixelFormats.Pbgra32);
+                                    renderBitmap.Render(viewPort3D);
 
-                        // 恢复原始背景色
-                        viewPort3D.Background = originalBackground;
+                                    // 创建PNG编码器
+                                    var encoder = new PngBitmapEncoder();
+                                    encoder.Frames.Add(BitmapFrame.Create(renderBitmap));
 
-                        MessageBox.Show("图片保存成功！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                                    // 保存图片
+                                    using (var stream = File.Create(saveFileDialog.FileName))
+                                    {
+                                        encoder.Save(stream);
+                                    }
+
+                                    // 恢复原始背景色
+                                    viewPort3D.Background = originalBackground;
+
+                                    MessageBox.Show("图片保存成功！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                                }
+                                catch (Exception ex)
+                                {
+                                    // 恢复原始背景色
+                                    viewPort3D.Background = originalBackground;
+                                    MessageBox.Show($"保存图片时出错：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                                }
+                            }));
+                        }));
                     }
                     catch (Exception ex)
                     {
