@@ -13,6 +13,11 @@ using System.IO;
 using MessageBox = System.Windows.MessageBox;
 using System.Security.Policy;
 using System.Windows.Threading;
+using static WpfApp1.MeshHelper;
+using MeshGeometry3D = System.Windows.Media.Media3D.MeshGeometry3D;
+using GeometryModel3D = System.Windows.Media.Media3D.GeometryModel3D;
+using Material = System.Windows.Media.Media3D.Material;
+using DiffuseMaterial = System.Windows.Media.Media3D.DiffuseMaterial;
 
 namespace WpfApp1
 {
@@ -45,6 +50,17 @@ namespace WpfApp1
                     // 加载新模型
                     Model3DGroup model = modelImporter.Load(openFileDialog.FileName);
                     StoreOriginalMaterials(model);
+
+                    //var lineBuilder = new LineBuilder();
+                    //lineBuilder.AddBoundingBox(yourModelGeometry.Bound);
+
+                    //var lineModel = new LineGeometryModel3D
+                    //{
+                    //    Geometry = lineBuilder.ToLineGeometry3D(), // 设置线框几何
+                    //    Color = Colors.Green, // 设置线条颜色
+                    //    Thickness = 2.0 // 设置线条粗细
+                    //};
+
 
                     // 创建模型可视化对象
                     var modelVisual = new ModelVisual3D { Content = model };
@@ -476,38 +492,53 @@ namespace WpfApp1
         private Dictionary<GeometryModel3D, Material> _originalMaterials = new Dictionary<GeometryModel3D, Material>();
         private List<Model3D> _allModels = new List<Model3D>();
 
-        // 场景对象类
-        public class SceneObject : INotifyPropertyChanged
+        private void FillMode_Click(object sender, RoutedEventArgs e)
         {
-            private string name;
-            private bool isVisible;
-            public ModelVisual3D Model { get; set; }
 
-            public string Name
+        }
+
+        LinesVisual3D CreateLineBuilderFromEdges(List<List<Edge>> edges)
+        {
+            LinesVisual3D linesVisual3D = new LinesVisual3D();
+            linesVisual3D.Thickness = 1;
+            linesVisual3D.Color = Colors.Red;
+
+            Point3DCollection point3Ds = new Point3DCollection();
+            foreach (var item in edges)
             {
-                get => name;
-                set
+                foreach (var e in item)
                 {
-                    name = value;
-                    OnPropertyChanged(nameof(Name));
+                    point3Ds.Add(e.V1Pos);
+                    point3Ds.Add(e.V2Pos);
                 }
             }
+            linesVisual3D.Points = point3Ds;
+            return linesVisual3D;
+        }
 
-            public bool IsVisible
+        private void WireModel_Click(object sender, RoutedEventArgs e)
+        {
+            foreach (var model in _allModels)
             {
-                get => isVisible;
-                set
+                if (model is GeometryModel3D geometryModel)
                 {
-                    isVisible = value;
-                    OnPropertyChanged(nameof(IsVisible));
+                    List<List<Edge>> edges = MeshHelper.ExtractBoundaryEdgesByNormal(geometryModel.Geometry as MeshGeometry3D);
+
                 }
-            }
+                else if (model is Model3DGroup model3DGroup)
+                {
+                    foreach (var item in model3DGroup.Children)
+                    {
+                        if (item is GeometryModel3D geometryModel1)
+                        {
+                            List<List<Edge>> edges = MeshHelper.ExtractBoundaryEdgesByNormal(geometryModel1.Geometry as MeshGeometry3D);
+                            var lineModel = CreateLineBuilderFromEdges(edges);
 
-            public event PropertyChangedEventHandler PropertyChanged;
-
-            protected virtual void OnPropertyChanged(string propertyName)
-            {
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+                            // 添加到viewport的Children集合中
+                            viewPort3D.Children.Add(lineModel);
+                        }
+                    }
+                }
             }
         }
     }

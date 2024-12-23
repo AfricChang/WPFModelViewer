@@ -25,6 +25,10 @@
             <MenuItem Header="视图">
                 <MenuItem Header="重置视图" Click="ResetView_Click"/>
                 <MenuItem Header="场景背景" Click="SetBackgroundColor_Click"/>
+                <MenuItem Header="显示模式">
+                    <MenuItem Header="填充" Click="FillMode_Click"/>
+                    <MenuItem Header="线框" Click="WireModel_Click"/>
+                </MenuItem>
             </MenuItem>
             <MenuItem Header="操作">
                 <MenuItem Header="保存为图片" Click="SaveImage_Click"/>
