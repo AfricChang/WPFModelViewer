@@ -18,21 +18,105 @@ using MeshGeometry3D = System.Windows.Media.Media3D.MeshGeometry3D;
 using GeometryModel3D = System.Windows.Media.Media3D.GeometryModel3D;
 using Material = System.Windows.Media.Media3D.Material;
 using DiffuseMaterial = System.Windows.Media.Media3D.DiffuseMaterial;
+using CheckBox = System.Windows.Controls.CheckBox;
+using System.Windows.Input;
+using Point = System.Windows.Point;
+using System.Reflection;
+using ComboBox = System.Windows.Controls.ComboBox;
+using Color = System.Windows.Media.Color;
 
 namespace WpfApp1
 {
+    public enum DisplayMode
+    {
+        FillMode = 0,
+        WireMode = 1
+    }
     public partial class MainWindow : Window
     {
-        private readonly ModelImporter modelImporter;
-        private ObservableCollection<SceneObject> sceneObjects;
+        private readonly ModelImporter modelImporter = new ModelImporter();
+        private ObservableCollection<SceneObject> sceneObjects = new ObservableCollection<SceneObject>();
+        private Dictionary<Model3D, List<LinesVisual3D>> m_dicModelVisualLines = new Dictionary<Model3D, List<LinesVisual3D>>();
+        private Dictionary<Model3D, ModelVisual3D> m_dicModelVisualModels = new Dictionary<Model3D, ModelVisual3D>();
+        private Dictionary<GeometryModel3D, Material> m_originalMaterials = new Dictionary<GeometryModel3D, Material>();
+        private HashSet<GeometryModel3D> m_setSelectedModels = new HashSet<GeometryModel3D>();
+        private List<Model3D> m_allModels = new List<Model3D>();
+        //默认选中颜色
+        //选中对象
+        private SolidColorBrush m_selectedColor = new SolidColorBrush(System.Windows.Media.Color.FromArgb(128, 255, 255, 0));
+        //隐藏颜色
+        private SolidColorBrush m_hiddenColor = new SolidColorBrush()
+        {
+            Color = Color.FromArgb(5, 255, 255, 255),
+            Opacity = 0
+        };
+        private DisplayMode m_displayMode = DisplayMode.FillMode;
 
         public MainWindow()
         {
             InitializeComponent();
-            modelImporter = new ModelImporter();
-            sceneObjects = new ObservableCollection<SceneObject>();
-            sceneTreeView.ItemsSource = sceneObjects;
-            _originalMaterials = new Dictionary<GeometryModel3D, Material>();
+        }
+
+        protected override void OnInitialized(EventArgs e)
+        {
+            base.OnInitialized(e);
+        }
+
+        private void HideGeometryModel3d(GeometryModel3D geometryModel)
+        {
+            DiffuseMaterial highlightMaterial = new DiffuseMaterial(m_hiddenColor);
+            highlightMaterial.Color = Color.FromArgb(5, 255, 255, 255);
+            highlightMaterial.AmbientColor = Color.FromArgb(5, 255, 255, 255);
+            geometryModel.Material = highlightMaterial;
+            geometryModel.SetValue(VisibilityProperty, Visibility.Hidden);
+            //geometryModel.BackMaterial = highlightMaterial;
+
+            m_setSelectedModels.Add(geometryModel);
+        }
+
+        private void HideModel(Model3D model)
+        {
+            if (model is GeometryModel3D geometryModel)
+            {
+                HideGeometryModel3d(geometryModel);
+            }
+            else if (model is Model3DGroup modelGroup)
+            {
+                foreach (var item in modelGroup.Children)
+                {
+                    HideModel(item);
+                }
+            }
+        }
+
+        private void PopulateSceneTreeView(Model3DGroup modelGroup, String name)
+        {
+            sceneTreeView.AllowDrop = true;
+            TreeViewItem newItem = new TreeViewItem { Header = name };
+
+            sceneTreeView.Items.Add(newItem);
+            AddModelGroupToTreeView(modelGroup, null);
+        }
+
+        private void AddModelGroupToTreeView(Model3DGroup modelGroup, TreeViewItem parentItem)
+        {
+            foreach (var model in modelGroup.Children)
+            {
+                TreeViewItem newItem = new TreeViewItem { Header = model.GetName() };
+                if (parentItem == null)
+                {
+                    sceneTreeView.Items.Add(newItem);
+                }
+                else
+                {
+                    parentItem.Items.Add(newItem);
+                }
+
+                if (model is Model3DGroup childGroup)
+                {
+                    AddModelGroupToTreeView(childGroup, newItem);
+                }
+            }
         }
 
         private void OpenFileButton_Click(object sender, RoutedEventArgs e)
@@ -51,22 +135,17 @@ namespace WpfApp1
                     Model3DGroup model = modelImporter.Load(openFileDialog.FileName);
                     StoreOriginalMaterials(model);
 
-                    //var lineBuilder = new LineBuilder();
-                    //lineBuilder.AddBoundingBox(yourModelGeometry.Bound);
-
-                    //var lineModel = new LineGeometryModel3D
-                    //{
-                    //    Geometry = lineBuilder.ToLineGeometry3D(), // 设置线框几何
-                    //    Color = Colors.Green, // 设置线条颜色
-                    //    Thickness = 2.0 // 设置线条粗细
-                    //};
-
-
                     // 创建模型可视化对象
                     var modelVisual = new ModelVisual3D { Content = model };
+                    modelContainer.Children.Clear();
                     modelContainer.Children.Add(modelVisual);
-                    _allModels.Add(model);
+                    m_allModels.Add(model);
+                    RemoveBackMaterial(model);
 
+                    m_dicModelVisualModels.Add(model, modelContainer);
+
+                    // 将模型的子项添加到场景对象树中
+                    PopulateSceneTreeView(model, Path.GetFileNameWithoutExtension(openFileDialog.FileName));
                     // 添加到场景树
                     var fileName = System.IO.Path.GetFileName(openFileDialog.FileName);
                     var sceneObject = new SceneObject
@@ -87,16 +166,30 @@ namespace WpfApp1
             }
         }
 
-        // 新增方法：递归存储所有几何模型的原始材质
+        private void RemoveBackMaterial(Model3D model)
+        {
+            if (model is GeometryModel3D geometryModel)
+            {
+                geometryModel.BackMaterial = null;
+            }
+            else if (model is Model3DGroup modelGroup)
+            {
+                foreach (var item in modelGroup.Children)
+                {
+                    RemoveBackMaterial(item);
+                }
+            }
+        }
+
         private void StoreOriginalMaterials(Model3DGroup modelGroup)
         {
             foreach (Model3D model in modelGroup.Children)
             {
                 if (model is GeometryModel3D geometryModel)
                 {
-                    if (geometryModel.Material != null && !_originalMaterials.ContainsKey(geometryModel))
+                    if (geometryModel.Material != null && !m_originalMaterials.ContainsKey(geometryModel))
                     {
-                        _originalMaterials[geometryModel] = geometryModel.Material;
+                        m_originalMaterials[geometryModel] = geometryModel.Material;
                     }
                 }
                 else if (model is Model3DGroup childGroup)
@@ -108,8 +201,19 @@ namespace WpfApp1
 
         private void ClearModel_Click(object sender, RoutedEventArgs e)
         {
+            while (viewPort3D.Children.Count > 3)
+            {
+                viewPort3D.Children.RemoveAt(viewPort3D.Children.Count - 1);
+            }
             modelContainer.Children.Clear();
             sceneObjects.Clear();
+            sceneTreeView.Items.Clear();
+            m_dicModelVisualLines.Clear();
+
+            m_dicModelVisualModels.Clear();
+            m_originalMaterials.Clear();
+            m_setSelectedModels.Clear();
+            m_allModels.Clear();
         }
 
         private void Exit_Click(object sender, RoutedEventArgs e)
@@ -198,6 +302,10 @@ namespace WpfApp1
                     scaleTransform.ScaleY = scale;
                     scaleTransform.ScaleZ = scale;
                 }
+                else if (checkbox.DataContext is GeometryModel3D geometryModel3D)
+                {
+                    //geometryModel3D.IsVisible = checkbox.IsChecked ?? false;
+                }
             }
         }
 
@@ -256,13 +364,13 @@ namespace WpfApp1
                                         materialGroup.Children.Add(((MaterialGroup)currentMaterial).Children[i]);
                                     }
                                     geometryModel.Material = materialGroup;
-                                    geometryModel.BackMaterial = materialGroup;
+                                    //geometryModel.BackMaterial = materialGroup;
                                 }
                                 else
                                 {
                                     // 如果原来就是DiffuseMaterial，直接替换
                                     geometryModel.Material = material;
-                                    geometryModel.BackMaterial = material;
+                                    //geometryModel.BackMaterial = material;
                                 }
                             }
                         }
@@ -271,73 +379,6 @@ namespace WpfApp1
             }
         }
 
-        private void ShowOnlyCurrent_Click(object sender, RoutedEventArgs e)
-        {
-            var menuItem = sender as MenuItem;
-            var currentObject = ((menuItem?.Parent as ContextMenu)?.PlacementTarget as FrameworkElement)?.DataContext as SceneObject;
-
-            if (currentObject != null)
-            {
-                foreach (var obj in sceneObjects)
-                {
-                    obj.IsVisible = (obj == currentObject);
-                    if (obj.IsVisible)
-                    {
-                        if (!modelContainer.Children.Contains(obj.Model))
-                        {
-                            modelContainer.Children.Add(obj.Model);
-                        }
-                    }
-                    else
-                    {
-                        modelContainer.Children.Remove(obj.Model);
-                    }
-                }
-            }
-        }
-
-        private void HideOnlyCurrent_Click(object sender, RoutedEventArgs e)
-        {
-            var menuItem = sender as MenuItem;
-            var currentObject = ((menuItem?.Parent as ContextMenu)?.PlacementTarget as FrameworkElement)?.DataContext as SceneObject;
-
-            if (currentObject != null)
-            {
-                foreach (var obj in sceneObjects)
-                {
-                    obj.IsVisible = (obj != currentObject);
-                    if (obj.Model != null)
-                    {
-                        var scaleTransform = GetOrCreateVisibilityTransform(obj.Model);
-                        double scale = obj.IsVisible ? 1 : 0;
-                        scaleTransform.ScaleX = scale;
-                        scaleTransform.ScaleY = scale;
-                        scaleTransform.ScaleZ = scale;
-                    }
-                }
-            }
-        }
-
-        private void RemoveObject_Click(object sender, RoutedEventArgs e)
-        {
-            var menuItem = sender as MenuItem;
-            var contextMenu = (menuItem.Parent as ContextMenu);
-            if (contextMenu != null)
-            {
-                var sceneObject = ((contextMenu.PlacementTarget as FrameworkElement)?.DataContext as SceneObject);
-                if (sceneObject != null)
-                {
-                    // 从场景中移除3D模型
-                    if (sceneObject.Model != null)
-                    {
-                        modelContainer.Children.Remove(sceneObject.Model);
-                    }
-
-                    // 从树形视图中移除对象
-                    sceneObjects.Remove(sceneObject);
-                }
-            }
-        }
 
         private void SaveImage_Click(object sender, RoutedEventArgs e)
         {
@@ -419,32 +460,16 @@ namespace WpfApp1
             }
         }
 
-        private void SceneTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
-        {
-            ClearAllHighlights();
-            if (e.NewValue is SceneObject sceneObject)
-            {
-                // Get the tag which should contain the 3D object reference
-                var modelObject = sceneObject.Model.Content;
-                if (modelObject != null)
-                {
-                    HighlightModel(modelObject);
-                }
-            }
-        }
 
-        // Helper method to clear all highlights
         private void ClearAllHighlights()
         {
-            // Iterate through all models and reset their materials
-            foreach (var model in _allModels)
+            foreach (var model in m_allModels)
             {
                 if (model is GeometryModel3D geometryModel)
                 {
-                    // Restore original material if we have stored it
-                    if (_originalMaterials.ContainsKey(geometryModel))
+                    if (m_originalMaterials.ContainsKey(geometryModel))
                     {
-                        geometryModel.Material = _originalMaterials[geometryModel];
+                        geometryModel.Material = m_originalMaterials[geometryModel];
                     }
                 }
                 else if (model is Model3DGroup model3DGroup)
@@ -453,9 +478,9 @@ namespace WpfApp1
                     {
                         if (item is GeometryModel3D geometryModel1)
                         {
-                            if (_originalMaterials.ContainsKey(geometryModel1))
+                            if (m_originalMaterials.ContainsKey(geometryModel1))
                             {
-                                geometryModel1.Material = _originalMaterials[geometryModel1];
+                                geometryModel1.Material = m_originalMaterials[geometryModel1];
                             }
                         }
                     }
@@ -463,38 +488,30 @@ namespace WpfApp1
             }
         }
 
-        // Helper method to highlight a specific model
-        private void HighlightModel(Model3D model)
+        //Control+鼠标左键  +/-选
+        private void HighlightGeometryModel3d(GeometryModel3D geometryModel,
+            SolidColorBrush newBrush)
+        {
+            DiffuseMaterial highlightMaterial = new DiffuseMaterial(newBrush);
+            geometryModel.Material = highlightMaterial;
+            //geometryModel.BackMaterial = highlightMaterial;
+
+            m_setSelectedModels.Add(geometryModel);
+        }
+
+        private void HighlightModel(Model3D model, SolidColorBrush solidColorBrush)
         {
             if (model is GeometryModel3D geometryModel)
             {
-                // Store original material if not already stored
-                if (!_originalMaterials.ContainsKey(geometryModel))
-                {
-                    _originalMaterials[geometryModel] = geometryModel.Material;
-                }
-
-                // Create highlight material (e.g., yellow semi-transparent)
-                var highlightMaterial = new DiffuseMaterial(new SolidColorBrush(System.Windows.Media.Color.FromArgb(128, 255, 255, 0)));
-                geometryModel.Material = highlightMaterial;
-                geometryModel.BackMaterial = highlightMaterial;
+                HighlightGeometryModel3d(geometryModel, solidColorBrush);
             }
             else if (model is Model3DGroup modelGroup)
             {
                 foreach (var item in modelGroup.Children)
                 {
-                    HighlightModel(item);
+                    HighlightModel(item, solidColorBrush);
                 }
             }
-        }
-
-        // Add this field to store original materials
-        private Dictionary<GeometryModel3D, Material> _originalMaterials = new Dictionary<GeometryModel3D, Material>();
-        private List<Model3D> _allModels = new List<Model3D>();
-
-        private void FillMode_Click(object sender, RoutedEventArgs e)
-        {
-
         }
 
         LinesVisual3D CreateLineBuilderFromEdges(List<List<Edge>> edges)
@@ -516,29 +533,184 @@ namespace WpfApp1
             return linesVisual3D;
         }
 
-        private void WireModel_Click(object sender, RoutedEventArgs e)
+        //Control+鼠标左键  +选
+        //Shift+鼠标左键    -选
+        private void Viewport_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            foreach (var model in _allModels)
+            Point mousePosition = e.GetPosition(viewPort3D);
+            HitTestResult hit = VisualTreeHelper.HitTest(viewPort3D, mousePosition);
+            //线框模式下
+
+            //填充模式下
+            if (m_displayMode == DisplayMode.FillMode)
             {
-                if (model is GeometryModel3D geometryModel)
+                if (!Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl))
                 {
-                    List<List<Edge>> edges = MeshHelper.ExtractBoundaryEdgesByNormal(geometryModel.Geometry as MeshGeometry3D);
-
+                    ClearAllHighlights();
                 }
-                else if (model is Model3DGroup model3DGroup)
+            }
+            else
+            {
+                //没有按下Ctrl，设置为线框模式下的颜色
+                if (!Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl))
                 {
-                    foreach (var item in model3DGroup.Children)
+                    foreach (var model in m_allModels)
                     {
-                        if (item is GeometryModel3D geometryModel1)
-                        {
-                            List<List<Edge>> edges = MeshHelper.ExtractBoundaryEdgesByNormal(geometryModel1.Geometry as MeshGeometry3D);
-                            var lineModel = CreateLineBuilderFromEdges(edges);
-
-                            // 添加到viewport的Children集合中
-                            viewPort3D.Children.Add(lineModel);
-                        }
+                        HighlightModel(model, m_hiddenColor);
                     }
                 }
+
+            }
+
+            //线对象不需要选中
+            if (!(hit.VisualHit is LinesVisual3D) && hit is RayMeshGeometry3DHitTestResult rayMeshGeometry3DHitTestResult)
+            {
+                var geometryModel = rayMeshGeometry3DHitTestResult.ModelHit as GeometryModel3D;
+                //已经选中
+                if (m_setSelectedModels.Contains(geometryModel) &&
+                    ((Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control))
+                {
+                    m_setSelectedModels.Remove(geometryModel);
+                    if (m_displayMode == DisplayMode.WireMode)
+                    {
+                        geometryModel.Material = new DiffuseMaterial(m_hiddenColor);
+                        //geometryModel.BackMaterial = new DiffuseMaterial(m_hiddenColor);
+                    }
+                    else
+                    {
+                        geometryModel.Material = m_originalMaterials[geometryModel];
+                        //geometryModel.BackMaterial = m_originalMaterials[geometryModel];
+                    }
+                    return;
+                }
+                HighlightGeometryModel3d(geometryModel, m_selectedColor);
+            }
+        }
+
+        private LinesVisual3D? CreateLineVisualModelFromGeometryModel(GeometryModel3D geometryModel)
+        {
+            if (geometryModel == null)
+                return null;
+
+            List<List<Edge>> edges = MeshHelper.ExtractBoundaryEdgesByNormal(geometryModel.Geometry as MeshGeometry3D);
+            if (edges == null)
+            {
+                return null;
+            }
+            var lineModel = CreateLineBuilderFromEdges(edges);
+            if (lineModel == null)
+            {
+                return null;
+            }
+            lineModel.SetName(geometryModel.GetName());
+            return lineModel;
+        }
+
+        private void ShowModelLines(Model3D model, Transform3D parentTransform3D, List<LinesVisual3D> linesVisual3Ds)
+        {
+            if (model is GeometryModel3D geometryModel)
+            {
+                var lineModel = CreateLineVisualModelFromGeometryModel(geometryModel);
+                if (lineModel != null)
+                {
+                    //别忘了矩阵，虽然可能大多数情况为单位矩阵
+                    if (parentTransform3D != null)
+                    {
+                        lineModel.Transform = new MatrixTransform3D()
+                        {
+                            Matrix = parentTransform3D.Value * model.Transform.Value
+                        };
+                    }
+                    else
+                    {
+                        lineModel.Transform = model.Transform;
+                    }
+
+                    viewPort3D.Children.Add(lineModel);
+                    linesVisual3Ds.Add(lineModel);
+                }
+            }
+            else if (model is Model3DGroup model3DGroup)
+            {
+                foreach (var item in model3DGroup.Children)
+                {
+                    if (parentTransform3D == null)
+                    {
+                        ShowModelLines(item, item.Transform, linesVisual3Ds);
+                    }
+                    else
+                    {
+                        var transform = new MatrixTransform3D();
+                        transform.Matrix = parentTransform3D.Value * item.Transform.Value;
+
+                        ShowModelLines(item, transform, linesVisual3Ds);
+                    }
+                }
+            }
+
+        }
+
+        private void DisplayModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var comboBox = sender as ComboBox;
+            if (comboBox == null)
+            {
+                return;
+            }
+
+            //填充,移除线框模型
+            if (comboBox.SelectedIndex == 0)
+            {
+                m_displayMode = DisplayMode.FillMode;
+                if (m_allModels.Count > 0)
+                {
+                    foreach (var item in m_dicModelVisualLines)
+                    {
+                        foreach (var linesVisual in item.Value)
+                        {
+                            viewPort3D.Children.Remove(linesVisual);
+                        }
+                    }
+                    ClearAllHighlights();
+                }
+            }
+            //轮廓，移除填充模型
+            else
+            {
+                m_displayMode = DisplayMode.WireMode;
+                foreach (var item in m_dicModelVisualModels)
+                {
+                    HideModel(item.Key);
+                    //viewPort3D.Children.Remove(item.Value);
+                }
+
+                foreach (var model in m_allModels)
+                {
+                    if (m_dicModelVisualLines.ContainsKey(model))
+                    {
+                        foreach (var item in m_dicModelVisualLines[model])
+                        {
+                            viewPort3D.Children.Add(item);
+                        }
+                    }
+                    else
+                    {
+                        List<LinesVisual3D> linesVisual3Ds = new List<LinesVisual3D>();
+                        ShowModelLines(model, model.Transform, linesVisual3Ds);
+                        m_dicModelVisualLines.Add(model, linesVisual3Ds);
+                    }
+                }
+
+            }
+
+        }
+
+        private void SelectColor_Click(object sender, RoutedEventArgs e)
+        {
+            ColorPickerWindow colorPickerWindow = new ColorPickerWindow(m_selectedColor.Color);
+            if (colorPickerWindow.ShowDialog() == true)
+            {
+                m_selectedColor.Color = colorPickerWindow.SelectedColor;
             }
         }
     }
